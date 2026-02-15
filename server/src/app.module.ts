@@ -16,6 +16,7 @@ import { WorldController } from './world.controller';
 import { WorldService } from './world.service';
 import { SocialTournamentController } from './social-tournament.controller';
 import { SocialTournamentService } from './social-tournament.service';
+import { GameSocialController } from './game-social.controller';
 
 @Module({
   controllers: [
@@ -27,6 +28,7 @@ import { SocialTournamentService } from './social-tournament.service';
     StakingController,
     WorldController,
     SocialTournamentController,
+    GameSocialController,
   ],
   providers: [
     AppService,
