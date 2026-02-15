@@ -1,4 +1,4 @@
-# Server (NestJS)
+# Server (NestJS + Prisma + PostgreSQL)
 
 ## Запуск через Docker Compose
 
@@ -13,12 +13,16 @@ docker compose up --build
 - `postgres` — localhost:5432
 - `redis` — localhost:6379
 
+При старте контейнера `server` автоматически:
+1. генерируется Prisma Client,
+2. применяются миграции Prisma в PostgreSQL,
+3. запускается NestJS-приложение.
+
 ## Проверка endpoint `/health`
 
-### Через браузер
-Откройте:
-
-- http://localhost:3000/health
+```bash
+curl http://localhost:3000/health
+```
 
 Ожидаемый ответ:
 
@@ -26,8 +30,14 @@ docker compose up --build
 { "ok": true }
 ```
 
-### Через curl
+## Проверка endpoint `/db-check`
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:3000/db-check
+```
+
+Ожидаемый ответ на чистой базе:
+
+```json
+{ "usersCount": 0 }
 ```
