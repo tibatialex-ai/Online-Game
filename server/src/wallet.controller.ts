@@ -46,4 +46,13 @@ export class WalletController {
     const userId = this.getUserIdFromAuthHeader(authorization);
     return this.walletService.faucet(userId, body?.amount);
   }
+
+  @Post('transfer')
+  async transfer(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: { toNickname: string; amount: number | string },
+  ) {
+    const userId = this.getUserIdFromAuthHeader(authorization);
+    return this.walletService.transfer(userId, body?.toNickname, body?.amount);
+  }
 }
