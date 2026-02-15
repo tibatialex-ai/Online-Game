@@ -4,10 +4,13 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma, SubscriptionStatus, SubscriptionTier } from '@prisma/client';
 import { Socket } from 'net';
+import { PrismaService } from './prisma.service';
 
 const PLAYERS_PER_MATCH = 10;
 const REDIS_MATCH_KEY_PREFIX = 'social_tournament:match:';
+const SOCIAL_TOURNAMENT_FEE_PERCENT = new Prisma.Decimal('0.15');
 
 export type SocialTournamentRoundType =
   | 'logic'
@@ -31,9 +34,12 @@ export interface SocialTournamentMatch {
   id: string;
   playerIds: number[];
   durationMinutes: number;
+  mode: 'free' | 'paid';
+  stakeAmount: string | null;
   createdAt: string;
   updatedAt: string;
   completed: boolean;
+  settled: boolean;
   currentRoundIndex: number;
   scores: Record<string, number>;
   rounds: SocialTournamentRound[];
@@ -48,8 +54,10 @@ interface RedisEndpoint {
 export class SocialTournamentService {
   private readonly matches = new Map<string, SocialTournamentMatch>();
   private readonly redisEndpoint: RedisEndpoint;
+  private readonly freeQueue = new Set<number>();
+  private readonly paidQueues = new Map<string, Set<number>>();
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     this.redisEndpoint = this.parseRedisEndpoint(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
   }
 
@@ -357,6 +365,216 @@ export class SocialTournamentService {
     throw new BadRequestException('Unsupported round type');
   }
 
+  private buildMatch(playerIds: number[], durationMinutes: number, mode: 'free' | 'paid', stakeAmount: Prisma.Decimal | null) {
+    const now = new Date().toISOString();
+    const matchId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    return {
+      id: matchId,
+      playerIds,
+      durationMinutes,
+      mode,
+      stakeAmount: stakeAmount?.toString() ?? null,
+      createdAt: now,
+      updatedAt: now,
+      completed: false,
+      settled: false,
+      currentRoundIndex: 0,
+      scores: Object.fromEntries(playerIds.map((id) => [id.toString(), 0])),
+      rounds: this.buildRounds(),
+    } as SocialTournamentMatch;
+  }
+
+  private validateStakeByTier(tier: SubscriptionTier, stake: Prisma.Decimal) {
+    if (stake.lt(new Prisma.Decimal('0.5'))) {
+      throw new BadRequestException('stakeAmount must be in allowed subscription range');
+    }
+
+    if (tier === SubscriptionTier.TIER_30 && stake.gt(new Prisma.Decimal('1'))) {
+      throw new BadRequestException('stakeAmount must be in allowed subscription range');
+    }
+
+    if (tier === SubscriptionTier.TIER_60 && stake.gt(new Prisma.Decimal('5'))) {
+      throw new BadRequestException('stakeAmount must be in allowed subscription range');
+    }
+
+    if (tier === SubscriptionTier.TIER_100 && stake.gt(new Prisma.Decimal('20'))) {
+      throw new BadRequestException('stakeAmount must be in allowed subscription range');
+    }
+  }
+
+  private async ensurePaidEligibility(userId: number, stake: Prisma.Decimal) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        status: SubscriptionStatus.ACTIVE,
+        endAt: {
+          gt: new Date(),
+        },
+      },
+      orderBy: {
+        endAt: 'desc',
+      },
+      select: {
+        tier: true,
+      },
+    });
+
+    if (!subscription) {
+      throw new BadRequestException('Active subscription is required for paid mode');
+    }
+
+    this.validateStakeByTier(subscription.tier, stake);
+  }
+
+  private rankPlayers(match: SocialTournamentMatch) {
+    return [...match.playerIds].sort((a, b) => {
+      const scoreDiff = match.scores[b.toString()] - match.scores[a.toString()];
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      return a - b;
+    });
+  }
+
+  private async settlePaidMatch(match: SocialTournamentMatch) {
+    if (match.mode !== 'paid' || match.stakeAmount === null) {
+      return;
+    }
+
+    const stake = new Prisma.Decimal(match.stakeAmount);
+    const total = stake.mul(PLAYERS_PER_MATCH);
+    const fee = total.mul(SOCIAL_TOURNAMENT_FEE_PERCENT);
+    const prizePool = total.sub(fee);
+    const winnersRanked = this.rankPlayers(match).slice(0, 3);
+
+    const payouts = [
+      prizePool.mul(new Prisma.Decimal('0.60')),
+      prizePool.mul(new Prisma.Decimal('0.25')),
+      prizePool.mul(new Prisma.Decimal('0.15')),
+    ];
+
+    await this.prisma.$transaction(async (tx) => {
+      const wallets = await tx.wallet.findMany({
+        where: {
+          userId: {
+            in: match.playerIds,
+          },
+        },
+        select: {
+          userId: true,
+          balanceToken: true,
+        },
+      });
+
+      if (wallets.length !== PLAYERS_PER_MATCH) {
+        throw new BadRequestException('Some players do not have wallets');
+      }
+
+      const walletsByUserId = new Map(wallets.map((item) => [item.userId, item]));
+
+      for (const playerId of match.playerIds) {
+        const wallet = walletsByUserId.get(playerId);
+        if (!wallet || wallet.balanceToken.lt(stake)) {
+          throw new BadRequestException('Insufficient balanceToken for paid match participant');
+        }
+      }
+
+      for (const playerId of match.playerIds) {
+        await tx.wallet.update({
+          where: { userId: playerId },
+          data: {
+            balanceToken: {
+              decrement: stake,
+            },
+          },
+        });
+
+        await tx.ledger.create({
+          data: {
+            userId: playerId,
+            type: 'SOCIAL_TOURNAMENT_STAKE',
+            amount: stake.neg(),
+            metaJson: {
+              matchId: match.id,
+              mode: 'paid',
+              feePercent: SOCIAL_TOURNAMENT_FEE_PERCENT.toString(),
+            },
+          },
+        });
+      }
+
+      await tx.treasury.update({
+        where: { id: 1 },
+        data: {
+          balanceToken: {
+            increment: fee,
+          },
+        },
+      });
+
+      for (let index = 0; index < winnersRanked.length; index += 1) {
+        const winnerId = winnersRanked[index];
+        const amount = payouts[index];
+
+        await tx.wallet.update({
+          where: { userId: winnerId },
+          data: {
+            balanceToken: {
+              increment: amount,
+            },
+          },
+        });
+
+        await tx.ledger.create({
+          data: {
+            userId: winnerId,
+            type: 'SOCIAL_TOURNAMENT_PRIZE',
+            amount,
+            metaJson: {
+              matchId: match.id,
+              place: index + 1,
+            },
+          },
+        });
+      }
+    });
+  }
+
+  private async saveMatchResult(match: SocialTournamentMatch) {
+    const winners = this.rankPlayers(match).slice(0, 3);
+
+    await this.prisma.socialTournamentMatchResult.upsert({
+      where: {
+        matchId: match.id,
+      },
+      update: {
+        winners,
+        scores: match.scores,
+      },
+      create: {
+        matchId: match.id,
+        winners,
+        scores: match.scores,
+      },
+    });
+  }
+
+  private async onMatchCompleted(match: SocialTournamentMatch) {
+    if (match.settled) {
+      return;
+    }
+
+    await this.settlePaidMatch(match);
+    await this.saveMatchResult(match);
+    match.settled = true;
+  }
+
+  private paidQueueKey(stake: Prisma.Decimal) {
+    return stake.toFixed(8);
+  }
+
   async createMatch(playerIds: number[], durationMinutes = 10) {
     this.ensurePlayers(playerIds);
 
@@ -364,24 +582,84 @@ export class SocialTournamentService {
       throw new BadRequestException('durationMinutes must be an integer in range 10..20');
     }
 
-    const now = new Date().toISOString();
-    const matchId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-    const match: SocialTournamentMatch = {
-      id: matchId,
-      playerIds,
-      durationMinutes,
-      createdAt: now,
-      updatedAt: now,
-      completed: false,
-      currentRoundIndex: 0,
-      scores: Object.fromEntries(playerIds.map((id) => [id.toString(), 0])),
-      rounds: this.buildRounds(),
-    };
-
+    const match = this.buildMatch(playerIds, durationMinutes, 'free', null);
     await this.persistMatch(match);
 
     return match;
+  }
+
+  async joinMatchmaking(userId: number, mode: 'free' | 'paid', stakeAmountRaw?: number | string) {
+    if (mode !== 'free' && mode !== 'paid') {
+      throw new BadRequestException('mode must be one of: free, paid');
+    }
+
+    if (mode === 'free') {
+      this.freeQueue.add(userId);
+
+      if (this.freeQueue.size < PLAYERS_PER_MATCH) {
+        return {
+          status: 'queued',
+          mode,
+          queuedPlayers: this.freeQueue.size,
+          playersNeeded: PLAYERS_PER_MATCH - this.freeQueue.size,
+        };
+      }
+
+      const players = [...this.freeQueue].slice(0, PLAYERS_PER_MATCH);
+      for (const playerId of players) {
+        this.freeQueue.delete(playerId);
+      }
+
+      const match = this.buildMatch(players, 10, 'free', null);
+      await this.persistMatch(match);
+      return {
+        status: 'matched',
+        mode,
+        match,
+      };
+    }
+
+    if (stakeAmountRaw === undefined || stakeAmountRaw === null) {
+      throw new BadRequestException('stakeAmount is required for paid mode');
+    }
+
+    const stakeValue = typeof stakeAmountRaw === 'string' ? Number(stakeAmountRaw) : stakeAmountRaw;
+    if (!Number.isFinite(stakeValue) || stakeValue <= 0) {
+      throw new BadRequestException('stakeAmount must be a positive number');
+    }
+
+    const stakeAmount = new Prisma.Decimal(stakeValue.toString());
+    await this.ensurePaidEligibility(userId, stakeAmount);
+
+    const queueKey = this.paidQueueKey(stakeAmount);
+    const queue = this.paidQueues.get(queueKey) ?? new Set<number>();
+    queue.add(userId);
+    this.paidQueues.set(queueKey, queue);
+
+    if (queue.size < PLAYERS_PER_MATCH) {
+      return {
+        status: 'queued',
+        mode,
+        stakeAmount: queueKey,
+        queuedPlayers: queue.size,
+        playersNeeded: PLAYERS_PER_MATCH - queue.size,
+      };
+    }
+
+    const players = [...queue].slice(0, PLAYERS_PER_MATCH);
+    for (const playerId of players) {
+      queue.delete(playerId);
+    }
+
+    const match = this.buildMatch(players, 10, 'paid', stakeAmount);
+    await this.persistMatch(match);
+
+    return {
+      status: 'matched',
+      mode,
+      stakeAmount: queueKey,
+      match,
+    };
   }
 
   async getMatch(matchId: string) {
@@ -422,6 +700,10 @@ export class SocialTournamentService {
 
     if (Object.keys(currentRound.answers).length === PLAYERS_PER_MATCH) {
       this.resolveRound(match, currentRound);
+    }
+
+    if (match.completed) {
+      await this.onMatchCompleted(match);
     }
 
     match.updatedAt = new Date().toISOString();

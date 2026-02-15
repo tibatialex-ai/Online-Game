@@ -131,3 +131,13 @@ model Treasury {
   id           Int     @id
   balanceToken Decimal @default(0) @db.Decimal(20, 8)
 }
+
+
+model SocialTournamentMatchResult {
+  id        Int      @id @default(autoincrement())
+  matchId   String   @unique
+  winners   Json
+  scores    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

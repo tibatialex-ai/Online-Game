@@ -48,4 +48,5 @@ export class SocialTournamentController {
     const userId = this.getUserIdFromAuthHeader(authorization);
     return this.socialTournamentService.submitRoundAnswer(matchId, userId, body.answer);
   }
+
 }
