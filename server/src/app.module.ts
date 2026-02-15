@@ -14,6 +14,8 @@ import { StakingController } from './staking.controller';
 import { StakingService } from './staking.service';
 import { WorldController } from './world.controller';
 import { WorldService } from './world.service';
+import { SocialTournamentController } from './social-tournament.controller';
+import { SocialTournamentService } from './social-tournament.service';
 
 @Module({
   controllers: [
@@ -24,6 +26,7 @@ import { WorldService } from './world.service';
     SubscriptionController,
     StakingController,
     WorldController,
+    SocialTournamentController,
   ],
   providers: [
     AppService,
@@ -34,6 +37,7 @@ import { WorldService } from './world.service';
     SubscriptionService,
     StakingService,
     WorldService,
+    SocialTournamentService,
   ],
 })
 export class AppModule {}
