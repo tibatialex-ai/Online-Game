@@ -290,3 +290,29 @@ curl -X POST http://localhost:3000/subscription/buy \
 curl http://localhost:3000/subscription/status \
   -H 'Authorization: Bearer <JWT>'
 ```
+
+## WebSocket матч + чат
+
+Endpoint: `ws://localhost:3000/ws/match?token=<JWT>`
+
+Сообщения идут в JSON-формате:
+
+```json
+{ "event": "joinQueue", "payload": { "mode": "free" } }
+```
+
+### Поддерживаемые события
+
+- `joinQueue` (client -> server):
+  - payload: `{ "mode": "free" }` или `{ "mode": "paid", "stakeAmount": 1 }`
+- `matchFound` (server -> client): матч собран
+- `roundState` (server -> client): текущее состояние раунда
+- `submitAnswer` (client -> server):
+  - payload: `{ "matchId": "...", "answer": 2 }`
+- `roundResult` (server -> client): результат завершённого раунда
+- `matchResult` (server -> client): финальный результат матча
+- `chatMessage`:
+  - client -> server: `{ "matchId": "...", "message": "gg" }`
+  - server -> client: сообщение чата с `fromUserId` и `createdAt`
+
+Чат доступен только участникам соответствующего матча.

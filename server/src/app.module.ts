@@ -17,6 +17,7 @@ import { WorldService } from './world.service';
 import { SocialTournamentController } from './social-tournament.controller';
 import { SocialTournamentService } from './social-tournament.service';
 import { GameSocialController } from './game-social.controller';
+import { MatchWsGateway } from './match-ws.gateway';
 
 @Module({
   controllers: [
@@ -40,6 +41,7 @@ import { GameSocialController } from './game-social.controller';
     StakingService,
     WorldService,
     SocialTournamentService,
+    MatchWsGateway,
   ],
 })
 export class AppModule {}
