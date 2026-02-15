@@ -41,3 +41,66 @@ curl http://localhost:3000/db-check
 ```json
 { "usersCount": 0 }
 ```
+
+## Авторизация
+
+> `nickname` должен быть уникальным.
+
+### Регистрация
+
+```bash
+curl -X POST http://localhost:3000/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "nickname": "player1",
+    "password": "StrongPass123",
+    "refCodeOptional": "AB12CD34EF"
+  }'
+```
+
+Пример ответа:
+
+```json
+{
+  "id": 1,
+  "nickname": "player1",
+  "refCode": "A1B2C3D4E5"
+}
+```
+
+### Логин
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "nickname": "player1",
+    "password": "StrongPass123"
+  }'
+```
+
+Пример ответа:
+
+```json
+{
+  "accessToken": "<JWT>"
+}
+```
+
+### Текущий пользователь (`/me`)
+
+```bash
+curl http://localhost:3000/me \
+  -H 'Authorization: Bearer <JWT>'
+```
+
+Пример ответа:
+
+```json
+{
+  "nickname": "player1",
+  "gameRating": 0,
+  "mlmRating": 0,
+  "subscription": null
+}
+```
