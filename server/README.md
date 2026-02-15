@@ -182,3 +182,79 @@ curl -X POST http://localhost:3000/wallet/faucet \
   }
 }
 ```
+
+## Реферальная система (MLM 5 уровней)
+
+При регистрации можно передать `refCodeOptional` (или `refCode`) пригласившего.
+Система сохраняет цепочку аплайна до 5 уровней (`Referral.level` = 1..5).
+
+- уровень 1: пользователь, чей код использован при регистрации
+- уровень 2: пригласивший уровня 1
+- ...
+- уровень 5: максимально допустимая глубина
+
+Если код не существует, регистрация вернёт ошибку `Invalid referral code`.
+Если при сохранении цепочки обнаружен цикл, регистрация вернёт `Referral cycle detected`.
+
+Все endpoint'ы ниже требуют JWT в заголовке `Authorization: Bearer <JWT>`.
+
+### Моя реферальная ссылка (`GET /referrals/link`)
+
+```bash
+curl http://localhost:3000/referrals/link \
+  -H 'Authorization: Bearer <JWT>'
+```
+
+Пример ответа:
+
+```json
+{
+  "refCode": "A1B2C3D4E5",
+  "link": "?ref=A1B2C3D4E5"
+}
+```
+
+### Аплайн 1..5 (`GET /referrals/upline`)
+
+```bash
+curl http://localhost:3000/referrals/upline \
+  -H 'Authorization: Bearer <JWT>'
+```
+
+Пример ответа:
+
+```json
+[
+  { "level": 1, "inviter": { "id": 2, "nickname": "alice", "refCode": "ALICE00001" } },
+  { "level": 2, "inviter": { "id": 1, "nickname": "root", "refCode": "ROOT000001" } }
+]
+```
+
+### Даунлайн 1 уровня (постранично) (`GET /referrals/downline`)
+
+Параметры:
+- `page` (по умолчанию `1`)
+- `pageSize` (по умолчанию `20`, максимум `100`)
+
+```bash
+curl 'http://localhost:3000/referrals/downline?page=1&pageSize=20' \
+  -H 'Authorization: Bearer <JWT>'
+```
+
+Пример ответа:
+
+```json
+{
+  "page": 1,
+  "pageSize": 20,
+  "total": 3,
+  "items": [
+    {
+      "id": 10,
+      "nickname": "player10",
+      "refCode": "P10REF0001",
+      "createdAt": "2026-02-15T12:00:00.000Z"
+    }
+  ]
+}
+```
