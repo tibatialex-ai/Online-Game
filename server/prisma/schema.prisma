@@ -23,7 +23,7 @@ model User {
   id            Int            @id @default(autoincrement())
   nickname      String         @unique
   passwordHash  String
-  refCode       String
+  refCode       String         @unique
   createdAt     DateTime       @default(now())
   gameRating    Int            @default(0)
   mlmRating     Int            @default(0)
