@@ -45,6 +45,35 @@ export interface SocialTournamentMatch {
   rounds: SocialTournamentRound[];
 }
 
+export interface RoundStatePayload {
+  matchId: string;
+  roundNumber: number;
+  type: SocialTournamentRoundType;
+  playersAnswered: number;
+  totalPlayers: number;
+}
+
+export interface RoundResultPayload {
+  matchId: string;
+  roundNumber: number;
+  type: SocialTournamentRoundType;
+  details: SocialTournamentRound['details'];
+  scores: Record<string, number>;
+}
+
+export interface MatchResultPayload {
+  matchId: string;
+  winners: number[];
+  scores: Record<string, number>;
+}
+
+export interface SubmitRoundAnswerResult {
+  match: SocialTournamentMatch;
+  roundResolved: boolean;
+  roundResult: RoundResultPayload | null;
+  matchResult: MatchResultPayload | null;
+}
+
 interface RedisEndpoint {
   host: string;
   port: number;
@@ -667,6 +696,41 @@ export class SocialTournamentService {
   }
 
   async submitRoundAnswer(matchId: string, playerId: number, answer: string | number) {
+    return (await this.submitRoundAnswerDetailed(matchId, playerId, answer)).match;
+  }
+
+  buildRoundState(match: SocialTournamentMatch): RoundStatePayload | null {
+    if (match.completed) {
+      return null;
+    }
+
+    const round = match.rounds[match.currentRoundIndex];
+    if (!round) {
+      return null;
+    }
+
+    return {
+      matchId: match.id,
+      roundNumber: round.roundNumber,
+      type: round.type,
+      playersAnswered: Object.keys(round.answers).length,
+      totalPlayers: match.playerIds.length,
+    };
+  }
+
+  buildMatchResult(match: SocialTournamentMatch): MatchResultPayload {
+    return {
+      matchId: match.id,
+      winners: this.rankPlayers(match).slice(0, 3),
+      scores: match.scores,
+    };
+  }
+
+  async submitRoundAnswerDetailed(
+    matchId: string,
+    playerId: number,
+    answer: string | number,
+  ): Promise<SubmitRoundAnswerResult> {
     const match = await this.loadMatch(matchId);
 
     if (match.completed) {
@@ -698,8 +762,11 @@ export class SocialTournamentService {
 
     currentRound.answers[playerKey] = normalized;
 
+    let roundResolved = false;
+
     if (Object.keys(currentRound.answers).length === PLAYERS_PER_MATCH) {
       this.resolveRound(match, currentRound);
+      roundResolved = true;
     }
 
     if (match.completed) {
@@ -709,6 +776,21 @@ export class SocialTournamentService {
     match.updatedAt = new Date().toISOString();
     await this.persistMatch(match);
 
-    return match;
+    const roundResult: RoundResultPayload | null = roundResolved
+      ? {
+          matchId: match.id,
+          roundNumber: currentRound.roundNumber,
+          type: currentRound.type,
+          details: currentRound.details,
+          scores: match.scores,
+        }
+      : null;
+
+    return {
+      match,
+      roundResolved,
+      roundResult,
+      matchResult: match.completed ? this.buildMatchResult(match) : null,
+    };
   }
 }
