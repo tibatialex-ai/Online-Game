@@ -31,7 +31,8 @@ model User {
   invitedUsers  Referral[]     @relation("ReferralInviter")
   subscriptions Subscription[]
   wallet        Wallet?
-  ledgerEntries Ledger[]
+  ledgerEntries     Ledger[]
+  stakingPositions  StakingPosition[]
 }
 
 model Referral {
@@ -65,6 +66,19 @@ model Wallet {
   lockedToken  Decimal @default(0) @db.Decimal(20, 8)
   stakedToken  Decimal @default(0) @db.Decimal(20, 8)
   user         User    @relation(fields: [userId], references: [id])
+}
+
+
+model StakingPosition {
+  id      Int      @id @default(autoincrement())
+  userId  Int
+  amount  Decimal  @db.Decimal(20, 8)
+  startAt DateTime
+  endAt   DateTime
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([endAt])
 }
 
 model Ledger {
