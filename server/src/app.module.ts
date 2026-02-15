@@ -4,9 +4,11 @@ import { AppService } from './app.service';
 import { PrismaService } from './prisma.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { WalletController } from './wallet.controller';
+import { WalletService } from './wallet.service';
 
 @Module({
-  controllers: [AppController, AuthController],
-  providers: [AppService, PrismaService, AuthService],
+  controllers: [AppController, AuthController, WalletController],
+  providers: [AppService, PrismaService, AuthService, WalletService],
 })
 export class AppModule {}
