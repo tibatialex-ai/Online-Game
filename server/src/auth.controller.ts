@@ -14,9 +14,13 @@ export class AuthController {
 
   @Post('auth/register')
   async register(
-    @Body() body: { nickname: string; password: string; refCodeOptional?: string },
+    @Body() body: { nickname: string; password: string; refCodeOptional?: string; refCode?: string },
   ) {
-    return this.authService.register(body.nickname, body.password, body.refCodeOptional);
+    return this.authService.register(
+      body.nickname,
+      body.password,
+      body.refCodeOptional ?? body.refCode,
+    );
   }
 
   @Post('auth/login')

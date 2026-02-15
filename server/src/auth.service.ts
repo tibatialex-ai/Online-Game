@@ -90,6 +90,35 @@ export class AuthService {
     throw new BadRequestException('Failed to generate unique referral code');
   }
 
+
+  private async buildUplineChain(tx: any, inviterId: number, maxLevels = 5) {
+    const chain: number[] = [inviterId];
+
+    while (chain.length < maxLevels) {
+      const parentReferral = await tx.referral.findFirst({
+        where: {
+          userId: chain[chain.length - 1],
+          level: 1,
+        },
+        select: {
+          inviterId: true,
+        },
+      });
+
+      if (!parentReferral) {
+        break;
+      }
+
+      chain.push(parentReferral.inviterId);
+    }
+
+    return chain;
+  }
+
+  private hasDuplicateUsers(ids: number[]) {
+    return new Set(ids).size !== ids.length;
+  }
+
   async register(nickname: string, password: string, refCodeOptional?: string) {
     const normalizedNickname = nickname?.trim();
 
@@ -124,15 +153,24 @@ export class AuthService {
 
       if (refCodeOptional) {
         const inviter = await tx.user.findUnique({ where: { refCode: refCodeOptional } });
-        if (inviter && inviter.id !== user.id) {
-          await tx.referral.create({
-            data: {
-              userId: user.id,
-              inviterId: inviter.id,
-              level: 1,
-            },
-          });
+
+        if (!inviter) {
+          throw new BadRequestException('Invalid referral code');
         }
+
+        const uplineChain = await this.buildUplineChain(tx, inviter.id, 5);
+
+        if (uplineChain.includes(user.id) || this.hasDuplicateUsers(uplineChain)) {
+          throw new BadRequestException('Referral cycle detected');
+        }
+
+        await tx.referral.createMany({
+          data: uplineChain.map((uplineUserId, index) => ({
+            userId: user.id,
+            inviterId: uplineUserId,
+            level: index + 1,
+          })),
+        });
       }
 
       return user;
