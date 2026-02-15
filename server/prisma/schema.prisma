@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionTier {
+  TIER_30
+  TIER_60
+  TIER_100
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  nickname      String         @unique
+  passwordHash  String
+  refCode       String
+  createdAt     DateTime       @default(now())
+  gameRating    Int            @default(0)
+  mlmRating     Int            @default(0)
+  referrals     Referral[]     @relation("ReferralUser")
+  invitedUsers  Referral[]     @relation("ReferralInviter")
+  subscriptions Subscription[]
+  wallet        Wallet?
+  ledgerEntries Ledger[]
+}
+
+model Referral {
+  id        Int  @id @default(autoincrement())
+  userId    Int
+  inviterId Int
+  level     Int
+  user      User @relation("ReferralUser", fields: [userId], references: [id])
+  inviter   User @relation("ReferralInviter", fields: [inviterId], references: [id])
+
+  @@index([userId])
+  @@index([inviterId])
+}
+
+model Subscription {
+  id      Int                @id @default(autoincrement())
+  userId  Int
+  tier    SubscriptionTier
+  startAt DateTime
+  endAt   DateTime
+  status  SubscriptionStatus
+  user    User               @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Wallet {
+  id           Int     @id @default(autoincrement())
+  userId       Int     @unique
+  balanceToken Decimal @default(0) @db.Decimal(20, 8)
+  lockedToken  Decimal @default(0) @db.Decimal(20, 8)
+  stakedToken  Decimal @default(0) @db.Decimal(20, 8)
+  user         User    @relation(fields: [userId], references: [id])
+}
+
+model Ledger {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  amount    Decimal  @db.Decimal(20, 8)
+  metaJson  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Treasury {
+  id           Int     @id
+  balanceToken Decimal @default(0) @db.Decimal(20, 8)
+}
