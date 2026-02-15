@@ -8,9 +8,11 @@ import { WalletController } from './wallet.controller';
 import { WalletService } from './wallet.service';
 import { ReferralsController } from './referrals.controller';
 import { ReferralsService } from './referrals.service';
+import { SubscriptionController } from './subscription.controller';
+import { SubscriptionService } from './subscription.service';
 
 @Module({
-  controllers: [AppController, AuthController, WalletController, ReferralsController],
-  providers: [AppService, PrismaService, AuthService, WalletService, ReferralsService],
+  controllers: [AppController, AuthController, WalletController, ReferralsController, SubscriptionController],
+  providers: [AppService, PrismaService, AuthService, WalletService, ReferralsService, SubscriptionService],
 })
 export class AppModule {}

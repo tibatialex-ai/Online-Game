@@ -258,3 +258,35 @@ curl 'http://localhost:3000/referrals/downline?page=1&pageSize=20' \
   ]
 }
 ```
+
+## Подписка
+
+Все endpoint'ы ниже требуют JWT в заголовке `Authorization: Bearer <JWT>`.
+
+### Покупка годовой подписки (`POST /subscription/buy`)
+
+Поддерживаемые значения `tier`: `30`, `60`, `100`.
+
+При покупке:
+- списывается `tier` токенов с `wallet.balanceToken`;
+- подписка создаётся/обновляется на 1 год;
+- `30%` от `tier` идёт в `treasury`;
+- `70%` от `tier` распределяется в MLM по уровням 1..5 (40/30/15/10/5);
+- если на каком-то уровне нет аплайна, соответствующая доля уходит в `treasury`;
+- все движения пишутся в `ledger`.
+
+```bash
+curl -X POST http://localhost:3000/subscription/buy \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <JWT>' \
+  -d '{
+    "tier": 30
+  }'
+```
+
+### Статус подписки (`GET /subscription/status`)
+
+```bash
+curl http://localhost:3000/subscription/status \
+  -H 'Authorization: Bearer <JWT>'
+```
