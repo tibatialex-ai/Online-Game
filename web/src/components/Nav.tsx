@@ -8,6 +8,7 @@ const links = [
   { href: "/wallet", label: "Wallet" },
   { href: "/subscription", label: "Subscription" },
   { href: "/staking", label: "Staking" },
+  { href: "/social-game", label: "Social Game" },
 ];
 
 export function Nav() {
