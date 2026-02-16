@@ -1,0 +1,17 @@
+{
+  "map": "CityMap",
+  "district": "CentralBlock",
+  "buildings": [
+    {"id": 1, "name": "Social Game", "location": [0, 0, 0], "ui_title": "Social Game"},
+    {"id": 2, "name": "Casino", "location": [1200, 0, 0], "ui_title": "Casino"},
+    {"id": 3, "name": "Pinball Shooter", "location": [2400, 0, 0], "ui_title": "Pinball Shooter"},
+    {"id": 4, "name": "City Simulator", "location": [3600, 0, 0], "ui_title": "City Simulator"},
+    {"id": 5, "name": "Racing", "location": [0, 2000, 0], "ui_title": "Racing"},
+    {"id": 6, "name": "Exchange", "location": [1200, 2000, 0], "ui_title": "Exchange"},
+    {"id": 7, "name": "Cinema", "location": [2400, 2000, 0], "ui_title": "Cinema"},
+    {"id": 8, "name": "Museum", "location": [3600, 2000, 0], "ui_title": "Museum"},
+    {"id": 9, "name": "Arena", "location": [1200, 4000, 0], "ui_title": "Arena"},
+    {"id": 10, "name": "Night Watch", "location": [2400, 4000, 0], "ui_title": "Night Watch"}
+  ],
+  "enter_prompt": "Нажмите кнопку Войти"
+}
