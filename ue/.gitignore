@@ -1,0 +1,39 @@
+# Unreal Engine 5 generated folders
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.VC.db
+*.VC.opendb
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.user
+*.userprefs
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.code-workspace
+
+# Unreal generated project files
+*.xcodeproj
+*.xcworkspace
+*.DS_Store
+
+# Logs and local config
+*.log
+*.tmp
+*.bak
+
+# Packaging / cooked content
+Cooked/
+StagedBuilds/
+
+# Crash reports
+CrashReportClient/

@@ -1,64 +1,44 @@
-# Unreal Engine часть проекта
+# Unreal Engine: быстрый старт для папки `/ue`
 
-Подготовлена структура UE5-проекта в папке `ue/CityDistrict`.
+Ниже инструкция, как создать новый Unreal Engine 5 проект в папке `ue/CityGame`, какие параметры выбрать и как затем открыть проект.
 
-## Что включено
-- Карта `CityMap` (назначена как стартовая в конфиге).
-- Основа под персонажа от 3-го лица (через `BP_CityCharacter`/`BP_CityGameMode` в структуре ассетов).
-- Один район с улицами и 10 зданиями-блоками.
-- Для каждого здания — табличка с названием.
-- Для каждого здания — входная зона с подсказкой **"Нажмите кнопку Войти"**.
-- При входе предусмотрено открытие простого UI-окна здания (`WBP_BuildingPanel`).
-- C++ runtime-модуль `CityDistrict` с HTTP-клиентом (`UCityApiSubsystem`) и хранением JWT в `SaveGame`.
-- Базовые C++ виджеты для экрана логина/регистрации (`UCityAuthWidgetBase`) и профиля (`UCityProfileWidgetBase`).
+## 1) Создание проекта в `ue/CityGame`
+1. Запусти **Unreal Engine 5** через Epic Games Launcher.
+2. В окне создания проекта выбери раздел **Games**.
+3. Выбери шаблон **Third Person** (Third Person Template).
+4. В блоке настроек проекта укажи:
+   - **Project Name**: `CityGame`
+   - **Location**: путь до папки `.../Online-Game/ue`
+   - В итоге проект должен создаться по пути: `.../Online-Game/ue/CityGame`
+5. Нажми **Create**.
 
-## Список зданий
-1) Social Game
-2) Casino
-3) Pinball Shooter
-4) City Simulator
-5) Racing
-6) Exchange
-7) Cinema
-8) Museum
-9) Arena
-10) Night Watch
+## 2) Какие настройки выбрать (Third Person Template, C++ или Blueprint)
+При создании `CityGame` рекомендуемые параметры:
 
-## Файлы
-- `CityDistrict/CityDistrict.uproject` — проект UE5.
-- `CityDistrict/Config/DefaultEngine.ini` — стартовая карта и game mode.
-- `CityDistrict/Config/DefaultGame.ini` — метаданные проекта.
-- `CityDistrict/Content/Data/Buildings.json` — данные по зданиям.
-- `CityDistrict/Content/Maps/CityMap/CityMap.spec.md` — спецификация карты и blueprint-ассетов.
-- `CityDistrict/Scripts/setup_city_map.py` — Python-скрипт для генерации сцены в UE Editor.
+- **Template**: `Third Person`
+- **Project Type**:
+  - **Blueprint** — если хочешь быстрее собрать прототип без C++;
+  - **C++** — если сразу планируется игровая логика на коде.
+- **Target Platform**: `Desktop`
+- **Quality Preset**: `Maximum` (или `Scalable`, если слабый ПК)
+- **Starter Content**: `With Starter Content` (удобно для быстрого прототипа)
+- **Ray Tracing**: по желанию (обычно `Disabled` для старта)
 
-## Как применить в Unreal Editor
-1. Открыть `CityDistrict.uproject` в Unreal Engine 5.
-2. Включить плагины Python и Editor Scripting Utilities (уже отмечены в `.uproject`).
-3. Запустить Python-скрипт `Scripts/setup_city_map.py` из консоли UE.
-4. Создать/донастроить blueprint-ассеты, указанные в `CityMap.spec.md`, и привязать UI-взаимодействие на клавишу `E`.
+### Что выбрать: C++ или Blueprint
+- Для быстрого старта и визуального прототипа: **Blueprint**.
+- Если в проекте нужна сложная логика, интеграции, API и расширяемость: **C++**.
 
-## HTTP + JWT в игре
-Реализована подсистема `UCityApiSubsystem` (GameInstance Subsystem), которая подключается к API сервера:
-- `POST /auth/register`
-- `POST /auth/login`
-- `GET /me`
-- `GET /wallet`
+## 3) Как открыть проект
+### Вариант A: через Epic Games Launcher
+1. Открой раздел **Library**.
+2. Найди `CityGame` в списке проектов.
+3. Нажми на проект для открытия.
 
-JWT (`accessToken`) сохраняется в `SaveGame` (`CityAuthSlot`) и автоматически поднимается при запуске игры. Базовый URL API задаётся в `Config/DefaultGame.ini`:
+### Вариант B: напрямую из файлов
+1. Перейди в папку `ue/CityGame`.
+2. Запусти файл `CityGame.uproject`.
+3. Если проект C++ и UE попросит пересобрать модули — согласись (**Yes**) и дождись завершения сборки.
 
-```ini
-[/Script/CityDistrict.CityApiSubsystem]
-ApiBaseUrl=http://127.0.0.1:3000
-```
-
-## UI-экраны
-В проект добавлены базовые C++ классы для UMG:
-- `UCityAuthWidgetBase` — логин/регистрация (nickname, password, ref code), кнопки Login/Register, отображение ошибок.
-- `UCityProfileWidgetBase` — профиль игрока (nickname, balance, subscription, game/mlm rating) + кнопка Refresh.
-
-Чтобы использовать их в редакторе:
-1. Создай `WBP_AuthScreen` на основе `UCityAuthWidgetBase`.
-2. Привяжи поля/кнопки через `BindWidget` имена: `NicknameField`, `PasswordField`, `RefCodeField`, `LoginButton`, `RegisterButton`, `StatusText`.
-3. Создай `WBP_ProfileScreen` на основе `UCityProfileWidgetBase`.
-4. Привяжи `NicknameText`, `BalanceText`, `SubscriptionText`, `GameRatingText`, `MlmRatingText`, `ErrorText`, `RefreshButton`.
+## Полезно после первого запуска
+- Проверь, что стартовая карта и режим игры корректно выставлены в **Project Settings**.
+- Сразу сделай первый коммит только с исходниками (временные/собранные файлы исключаются через `.gitignore`).
